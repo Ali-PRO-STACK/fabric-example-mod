@@ -1,0 +1,141 @@
+paquete com.chaosmod;
+
+importar net.minecraftforge.fml.common.Mod;
+importar net.minecraftforge.eventbus.api.SubscribeEvent;
+importar net.minecraftforge.evento.entidad.ítem.EventoLanzaObjeto;
+importar net.minecraftforge.evento.entidad.EntidadUnirseNivelEvento;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+importación net.minecraft.world.entity.monster.Monster;
+importación net.minecraft.world.entity.Type;
+importar net.minecraft.world.level.Level;
+importar net.minecraft.world.entity.ai.goal.MeleeAtaqueObjetivo;
+importar net.minecraft.world.entity.ai.goal.RandomStrollGoal;
+importar net.minecraft.world.entity.projectile.SmallFireball;
+importar net.minecraft.server.level.ServerLevel;
+importar net.minecraft.server.level.ServerPlayer;
+importar net.minecraft.core.BlockPos;
+importar net.minecraft.world.level.block.Blocks;
+importar net.minecraft.resources.ResourceKey;
+importar net.minecraft.world.entity.monster.Zombie;
+importar net.minecraft.core.particles.ParticleTypes;
+importar net.minecraft.sounds.SoundSource;
+importar net.minecraft.network.chat.Component;
+importar net.minecraft.server.level.ServerBossEvent;
+
+@Mod ("caosmod")
+clase pública ChaosMod {
+final estático público String MODID = "chaosmod";
+
+ChaosMod() público {
+FMLJavaModLoadingContext.get().getModEventBus();
+}
+
+Jefe Titán Infernal
+clase pública estática InfernoTitanEntity extende Monster {
+publico InfernoTitanEntity(EntityType<? extiende Monster> type, Level world) { super(type, world); }
+@Override protegido registro vacío Goals() {
+this.goalSelector.addGoal(1, nuevo MeleeAttackGoal (this, 1.0D, true));
+this.goalSelector.addGoal(2, nuevo RandomStrollGoal(this, 0.8D));
+}
+@Override public void aiStep() {
+super.aiStep();
+si (this.random.nextInt(200) == 0) castMeteorRain();
+}
+vacío privado lanzamientoMeteorLluvia() {
+para (int i = 0; i < 5; i++) {
+double dx = this.getX() + (this.random.nextDouble() - 0.5) * 10;
+doble dy = this.getY() + 10;
+double dz = this.getZ() + (this.random.nextDouble() - 0.5) * 10;
+Bola de fuego pequeña = nuevo SmallFireball(this.level(), this, dx - this.getX(), dy - this.getY(), dz - this.getZ());
+fireball.setPos(dx, dy, dz);
+this.level().addFreshEntity(bola de fuego);
+}
+}
+}
+
+Señor del Caos: Jefe Final
+clase pública estática ChaosOverlordEntity, extiende Monster {
+fase booleana privada Dos = falso;
+privado final ServidorEventoJefe Jefe Bar = nuevo EventoJefe del Servidor(Component.literal ("Señor del Caos"), EventoJefe del Servidor.ColorBarJefe ROJO, EventoJefe del Servidor.Jefe Superpuesto.PROGRESO);
+
+ChaosOverlordEntity(EntityType<? extiende Monster> type, Level world) { super(type, world); }
+@Override public void aiStep() {
+super.aiStep();
+bossBar.setProgress(this.getHealth() / this.getMaxHealth());
+si (this.getHealth() < this.getMaxHealth() / 2 & !phaseTwo) enterPhaseTwo();
+si (this.random.nextInt(150) == 0) castElementalFusion();
+si (this.random.nextInt(300) == 0) invoca Minions();
+}
+vacío privado enterPhaseTwo() {
+faseDos = verdadero;
+BlockPos pos = this.blockPosition();
+para (int x = -50; x <= 50; x++) {
+para (int z = -50; z <= 50; z++) {
+BlockPos targetPos = pos.offset(x, 0, z);
+this.level().setBlock(targetPos, Blocks.OBSIDIAN.defaultBlockState(), 3);
+}
+}
+}
+vacío privado castElementalFusion() {
+this.level().explode(this, this.getX(), this.getY(), this.getZ(), 3.0F, Level.ExplosionInteraction.MOB);
+}
+invocación privada del vacío() {
+if (this.level() instancia de ServerLevel serverLevel) {
+para (int i = 0; i < 3; i++) {
+Esbirro zombi = TipoDeentidad.ZOMBIE.create(nivelServidor);
+BlockPos spawnPos = this.blockPosition().offset(this.random.nextInt(5) - 2, 0, this.random.nextInt(5) - 2);
+minion.moveTo(spawnPos.getX(), spawnPos.getY(), spawnPos.getZ(), this.random.nextFloat() * 360F, 0);
+serverLevel.addFreshEntity(minion);
+}
+}
+}
+}
+
+Evento de Disparador del Portal
+@Mod.EventBusSubscriber(modid = MODID)
+clase pública static TriggerPortalEvent {
+@SubscribeEvent
+empty estático público onItemToss(ItemTossEvent event) {
+si (!( event.getPlayer() instancia de ServerPlayer player)) return;
+BlockPos pos = jugador.blockPosition();
+conteo largo = player.level().getEntities(null, player.getBoundingBox().inflate(2.0D), e -> e.getName().getString().contains("essence")).size();
+si (contar >= 4) {
+Nivel de Servidor = nivelJugador.NivelServidor();
+level.setBlock(pos.above(), Blocks.NETHER_PORTAL.defaultBlockState(), 3);
+para (int i = 0; i < 100; i++) {
+double dx = pos.getX() + player.getRandom().nextDouble() * 2 - 1;
+doble dy = pos.getY() + jugador.objeciónAleatoria().siguienteDoble() * 2;
+double dz = pos.getZ() + player.getRandom().nextDouble() * 2 - 1;
+level.sendParticles(ParticleTypes.PORTAL, dx, dy, dz, 1, 0, 0, 0);
+}
+ResourceKey<Level> chaosRealm = ResourceKey.create(Level.RESOURCE_KEY, MODID + ":chaos_realm");
+jugador.cambioDimension(jugador.servidor.conseNivel(ReinoCaos));
+}
+}
+}
+
+Evento de Diseño de Autos Arena
+@Mod.EventBusSubscriber(modid = MODID)
+clase pública estática ArenaAutoDesignEvent {
+@SubscribeEvent
+empty estático público onBossSpawn(evento EntityJoinLevelEvent) {
+if (event.getEntity() instancia de ChaosOverlordEntity jefe && event.getLevel() instancia de nivel ServerLevel) {
+BlockPos centro = boss.blockPosition();
+para (int x = -50; x <= 50; x++) {
+para (int z = -50; z <= 50; z++) {
+BlockPos pos = center.offset(x, 0, z);
+if ((x + z) % 2 == 0) level.setBlock(pos, Blocks.OBSIDIAN.defaultBlockState(), 3);
+else level.setBlock(pos, Blocks.GLOWSTONE.defaultBlockState(), 3);
+}
+}
+para (int i = 0; i < 500; i++) {
+doble dx = centro.getX() + boss.getRandom().nextDouble() * 10 - 5;
+doble dy = centro.getY() + boss.getRandom().nextDouble() * 5;
+double dz = center.getZ() + boss.getRandom().nextDouble() * 10 - 5;
+level.sendParticles(ParticleTypes.PORTAL, dx, dy, dz, 1, 0, 0, 0);
+}
+level.playSound(nulo, centro, net.minecraft.sounds.SoundEvents.PORTAL_TRAVEL, SoundSource.MUSIC, 1.0F, 1.0F);
+}
+}
+}
+}
